@@ -1,0 +1,50 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import butter, filtfilt
+
+
+np.random.seed(42)  
+minutes_per_day = 1440
+traffic_data = np.random.poisson(lam=20, size=minutes_per_day)  
+noise = np.random.normal(0, 5, size=minutes_per_day) 
+traffic_data_noisy = traffic_data + noise
+
+
+def low_pass_filter(data, cutoff=0.05, order=3):
+    nyquist = 0.5  
+    b, a = butter(order, cutoff / nyquist, btype='low')
+    smoothed_data = filtfilt(b, a, data)
+    return smoothed_data
+
+traffic_data_smoothed = low_pass_filter(traffic_data_noisy)
+
+
+def compute_hourly_averages(data):
+    hourly_averages = np.mean(data.reshape(-1, 60), axis=1)
+    return hourly_averages
+
+hourly_averages = compute_hourly_averages(traffic_data_smoothed)
+
+
+time = np.arange(minutes_per_day)
+hours = np.arange(24)
+
+plt.figure(figsize=(12, 6))
+plt.plot(time, traffic_data_noisy, label='Noisy Data', alpha=0.5)
+plt.plot(time, traffic_data_smoothed, label='Smoothed Data', color='orange')
+plt.scatter(np.arange(0, minutes_per_day, 60), hourly_averages, color='red', label='Hourly Averages', zorder=5)
+
+
+exceeds_100 = np.where(traffic_data_smoothed > 100)[0]
+consecutive_intervals = np.split(exceeds_100, np.where(np.diff(exceeds_100) != 1)[0] + 1)
+for interval in consecutive_intervals:
+    if len(interval) > 20:
+        plt.axvspan(interval[0], interval[-1], color='green', alpha=0.3, label='Traffic > 100 for 20+ min')
+
+
+plt.title('Traffic Flow Monitoring')
+plt.xlabel('Time (Minutes)')
+plt.ylabel('Number of Vehicles')
+plt.legend()
+plt.grid(True)
+plt.show()
